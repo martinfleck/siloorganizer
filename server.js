@@ -39,28 +39,45 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
 
   const results = [];
 
+  // Detectar delimitador lendo a primeira linha
+  let separator = ',';
+  try {
+    const fileHeader = fs.readFileSync(req.file.path, 'utf8').split('\n')[0];
+    if (fileHeader.includes(';')) {
+      separator = ';';
+    }
+  } catch (err) {
+    console.error('Erro ao ler arquivo para detectar separador:', err.message);
+  }
+
   fs.createReadStream(req.file.path)
-    .pipe(csv())
+    .pipe(csv({ separator: separator }))
     .on('data', (data) => {
       results.push(data);
     })
     .on('end', async () => {
       fs.unlinkSync(req.file.path);
 
+      // Filtrar resultados válidos (remover vazios ou 'undefined')
+      const validResults = results.filter(item => {
+        const key = item['Palavra-Chave'] || item.keyword || item.Keyword || Object.values(item)[0];
+        return key && typeof key === 'string' && key.trim() !== '' && key.trim().toLowerCase() !== 'undefined';
+      });
+
       try {
-        console.log(`\n🚀 Iniciando processamento de ${results.length} palavras-chave com provedor: ${apiProvider}`);
+        console.log(`\n🚀 Iniciando processamento de ${validResults.length} palavras-chave com provedor: ${apiProvider}`);
         console.log('━'.repeat(50));
 
         // Calcular tempo estimado (1s por requisição para Google, ou sem delay para Serper se configurado)
         const isGoogle = apiProvider === 'google';
-        const estimatedTime = isGoogle ? Math.ceil(results.length / 60) : Math.ceil(results.length / 300); // Serper é muito mais rápido
+        const estimatedTime = isGoogle ? Math.ceil(validResults.length / 60) : Math.ceil(validResults.length / 300);
 
         // Enviar atualização inicial
         if (socketId) {
           io.to(socketId).emit('progress', {
-            message: `Iniciando análise de ${results.length} palavras-chave... (Tempo estimado: ~${estimatedTime} minuto${estimatedTime > 1 ? 's' : ''})`,
+            message: `Iniciando análise de ${validResults.length} palavras-chave... (Tempo estimado: ~${estimatedTime} minuto${estimatedTime > 1 ? 's' : ''})`,
             progress: 0,
-            total: results.length,
+            total: validResults.length,
             current: 0
           });
         }
@@ -68,22 +85,22 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
         // Processar sequencialmente para evitar rate limiting
         const keywordsWithSerps = [];
 
-        for (let i = 0; i < results.length; i++) {
-          const keyword = results[i];
-          const keywordText = keyword['Palavra-Chave'] || keyword.keyword || Object.values(keyword)[0];
-          const volume = keyword['Volume'] || keyword.volume || '0';
+        for (let i = 0; i < validResults.length; i++) {
+          const keyword = validResults[i];
+          const keywordText = (keyword['Palavra-Chave'] || keyword.keyword || keyword.Keyword || Object.values(keyword)[0]).trim();
+          const volume = keyword['Volume'] || keyword.volume || keyword.Volume || '0';
 
           // Enviar atualização antes de buscar
           if (socketId) {
             io.to(socketId).emit('progress', {
-              message: `[${i + 1}/${results.length}] Analisando com ${apiProvider}: "${keywordText}"`,
-              progress: Math.round((i / results.length) * 100),
-              total: results.length,
+              message: `[${i + 1}/${validResults.length}] Analisando com ${apiProvider}: "${keywordText}"`,
+              progress: Math.round((i / validResults.length) * 100),
+              total: validResults.length,
               current: i + 1
             });
           }
 
-          const serps = await fetchSerpResults(keywordText, apiProvider, i + 1, results.length, frontendCredentials);
+          const serps = await fetchSerpResults(keywordText, apiProvider, i + 1, validResults.length, frontendCredentials);
 
           keywordsWithSerps.push({
             keyword: keywordText,
@@ -92,15 +109,15 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
           });
 
           // Mostrar progresso
-          const progress = Math.round(((i + 1) / results.length) * 100);
-          console.log(`📊 Progresso: ${progress}% (${i + 1}/${results.length})`);
+          const progress = Math.round(((i + 1) / validResults.length) * 100);
+          console.log(`📊 Progresso: ${progress}% (${i + 1}/${validResults.length})`);
 
           // Enviar atualização após buscar
           if (socketId) {
             io.to(socketId).emit('progress', {
               message: `✓ Concluído: "${keywordText}"`,
               progress: progress,
-              total: results.length,
+              total: validResults.length,
               current: i + 1
             });
           }
@@ -131,7 +148,7 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
 
         res.json({
           message: 'Arquivo processado com sucesso!',
-          keywordCount: results.length,
+          keywordCount: validResults.length,
           groups: formattedGroups,
           keywords: formattedGroups.flatMap(g => g.keywords)
         });
