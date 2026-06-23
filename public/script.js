@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Atualizar info de rate limit
-    const updateRateLimitInfo = () => {
+    function updateRateLimitInfo() {
         const rateLimitInfo = document.getElementById('rate-limit-info');
         if (rateLimitInfo) {
             const provider = getSelectedProvider();
@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 rateLimitInfo.textContent = 'Taxa: Google Custom Search API - 1 requisição/segundo (1s de intervalo)';
             }
         }
-    };
+    }
 
     updateRateLimitInfo();
 
