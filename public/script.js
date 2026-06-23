@@ -163,27 +163,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // Carregar APIs ao iniciar
     loadSavedApis();
 
-    // Conectar ao Socket.IO
-    const socket = io();
+    // Verificar protocolo de acesso
+    if (window.location.protocol === 'file:') {
+        alert('ATENÇÃO: Você abriu o arquivo HTML diretamente no navegador (protocolo file://).\n\nPara que a ferramenta funcione e envie as requisições para o servidor, você deve iniciar o servidor com o comando "npm run dev" e acessar a URL: http://localhost:3000');
+    }
 
-    socket.on('connect', () => {
-        console.log('Conectado ao servidor');
-    });
+    // Conectar ao Socket.IO se disponível
+    let socket = null;
+    if (typeof io !== 'undefined') {
+        socket = io();
 
-    socket.on('progress', (data) => {
-        if (progressMessage) {
-            progressMessage.textContent = data.message;
-        }
-        if (progressBar) {
-            progressBar.style.width = `${data.progress}%`;
-        }
-        if (progressCounter && data.total) {
-            progressCounter.textContent = `${data.current || 0}/${data.total}`;
-        }
-        if (progressPercent) {
-            progressPercent.textContent = `${data.progress}%`;
-        }
-    });
+        socket.on('connect', () => {
+            console.log('Conectado ao servidor');
+        });
+
+        socket.on('progress', (data) => {
+            if (progressMessage) {
+                progressMessage.textContent = data.message;
+            }
+            if (progressBar) {
+                progressBar.style.width = `${data.progress}%`;
+            }
+            if (progressCounter && data.total) {
+                progressCounter.textContent = `${data.current || 0}/${data.total}`;
+            }
+            if (progressPercent) {
+                progressPercent.textContent = `${data.progress}%`;
+            }
+        });
+    } else {
+        console.warn('Socket.IO não foi carregado. O progresso em tempo real pode não funcionar.');
+    }
 
     // Atualizar info de rate limit
     const updateRateLimitInfo = () => {
@@ -214,7 +224,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('keywordFile', file);
         formData.append('apiProvider', provider);
-        formData.append('socketId', socket.id);
+        if (socket) {
+            formData.append('socketId', socket.id);
+        }
 
         if (provider === 'serper') {
             const serperKey = localStorage.getItem('serper_api_key');
