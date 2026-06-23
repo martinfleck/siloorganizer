@@ -522,26 +522,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            let csvContent = 'Keyword Principal,Variações Canibalizadas\n';
+            // Adicionar sep=; para o Excel abrir com as colunas certas no Windows em português
+            let csvContent = 'sep=;\n';
+            csvContent += 'Grupo;Tipo;Palavra-Chave;Volume;Similaridade;URLs da SERP\n';
 
-            currentGroups.forEach(group => {
+            currentGroups.forEach((group, groupIdx) => {
                 const keywords = group.keywords || [];
-                if (keywords.length > 0) {
-                    const principal = keywords[0]['Palavra-Chave'] || '';
-                    const variacoes = keywords.slice(1).map(k => k['Palavra-Chave']).join(',');
+                keywords.forEach((keyword, kwIdx) => {
+                    const text = keyword['Palavra-Chave'] || keyword.keyword || '';
+                    const volume = keyword['Volume'] || keyword.volume || '0';
+                    const similarity = kwIdx === 0 ? '100%' : `${keyword['Similaridade'] || keyword.similarity || 0}%`;
+                    const tipo = kwIdx === 0 ? 'Principal' : 'Canibalizada';
+                    
+                    // Listar as URLs da SERP
+                    const serpArray = keyword['SERPs'] || keyword.serps || [];
+                    const serps = serpArray.join(' | ');
 
-                    const principalEscaped = principal.includes(',') ? `"${principal}"` : principal;
-                    const variacoesEscaped = variacoes.includes(',') ? `"${variacoes}"` : variacoes;
+                    // Escapar ponto e vírgula e aspas para o formato CSV
+                    const escapeCsv = (str) => {
+                        if (str === null || str === undefined) return '';
+                        const textStr = String(str);
+                        if (textStr.includes(';') || textStr.includes('"') || textStr.includes('\n')) {
+                            return `"${textStr.replace(/"/g, '""')}"`;
+                        }
+                        return textStr;
+                    };
 
-                    csvContent += `${principalEscaped},${variacoesEscaped}\n`;
-                }
+                    csvContent += `${groupIdx + 1};${tipo};${escapeCsv(text)};${volume};${similarity};${escapeCsv(serps)}\n`;
+                });
             });
 
             const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'keywords_agrupadas.csv';
+            link.download = 'keywords_agrupadas_silo.csv';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
