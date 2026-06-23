@@ -27,15 +27,17 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
   }
 
   const socketId = req.body.socketId; // Receber socketId do cliente
-  
-  // Receber credenciais do Google do frontend
+  const apiProvider = req.body.apiProvider || 'serper';
+
+  // Receber credenciais do frontend
   const frontendCredentials = {
     googleApiKey: req.body.googleApiKey,
-    googleCseId: req.body.googleCseId
+    googleCseId: req.body.googleCseId,
+    serperApiKey: req.body.serperApiKey
   };
-  
+
   const results = [];
-  
+
   fs.createReadStream(req.file.path)
     .pipe(csv())
     .on('data', (data) => {
@@ -43,14 +45,15 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
     })
     .on('end', async () => {
       fs.unlinkSync(req.file.path);
-      
+
       try {
-        console.log(`\n🚀 Iniciando processamento de ${results.length} palavras-chave com Google API`);
+        console.log(`\n🚀 Iniciando processamento de ${results.length} palavras-chave com provedor: ${apiProvider}`);
         console.log('━'.repeat(50));
-        
-        // Calcular tempo estimado (1s por requisição)
-        const estimatedTime = Math.ceil(results.length / 60);
-        
+
+        // Calcular tempo estimado (1s por requisição para Google, ou sem delay para Serper se configurado)
+        const isGoogle = apiProvider === 'google';
+        const estimatedTime = isGoogle ? Math.ceil(results.length / 60) : Math.ceil(results.length / 300); // Serper é muito mais rápido
+
         // Enviar atualização inicial
         if (socketId) {
           io.to(socketId).emit('progress', {
@@ -60,37 +63,37 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
             current: 0
           });
         }
-        
+
         // Processar sequencialmente para evitar rate limiting
         const keywordsWithSerps = [];
-        
+
         for (let i = 0; i < results.length; i++) {
           const keyword = results[i];
           const keywordText = keyword['Palavra-Chave'] || keyword.keyword || Object.values(keyword)[0];
           const volume = keyword['Volume'] || keyword.volume || '0';
-          
+
           // Enviar atualização antes de buscar
           if (socketId) {
             io.to(socketId).emit('progress', {
-              message: `[${i + 1}/${results.length}] Analisando: "${keywordText}"`,
+              message: `[${i + 1}/${results.length}] Analisando com ${apiProvider}: "${keywordText}"`,
               progress: Math.round((i / results.length) * 100),
               total: results.length,
               current: i + 1
             });
           }
-          
-          const serps = await fetchSerpResults(keywordText, 'google', i + 1, results.length, frontendCredentials);
-          
+
+          const serps = await fetchSerpResults(keywordText, apiProvider, i + 1, results.length, frontendCredentials);
+
           keywordsWithSerps.push({
             keyword: keywordText,
             volume: volume,
             serps: serps
           });
-          
+
           // Mostrar progresso
           const progress = Math.round(((i + 1) / results.length) * 100);
           console.log(`📊 Progresso: ${progress}% (${i + 1}/${results.length})`);
-          
+
           // Enviar atualização após buscar
           if (socketId) {
             io.to(socketId).emit('progress', {
@@ -101,10 +104,10 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
             });
           }
         }
-        
+
         console.log('━'.repeat(50));
         console.log('✅ Processamento concluído!');
-        
+
         // Enviar atualização de agrupamento
         if (socketId) {
           io.to(socketId).emit('progress', {
@@ -112,9 +115,9 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
             progress: 100
           });
         }
-        
+
         const groups = groupSimilarKeywords(keywordsWithSerps);
-        
+
         const formattedGroups = groups.map((group, index) => ({
           groupId: index + 1,
           keywords: group.map(item => ({
@@ -124,8 +127,8 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
             'Similaridade': item.similarity || 100
           }))
         }));
-        
-        res.json({ 
+
+        res.json({
           message: 'Arquivo processado com sucesso!',
           keywordCount: results.length,
           groups: formattedGroups,
@@ -146,26 +149,26 @@ app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
 
 app.post('/api/exportar', (req, res) => {
   const { groups } = req.body;
-  
+
   if (!groups || !Array.isArray(groups)) {
     return res.status(400).json({ error: 'Dados inválidos para exportação' });
   }
-  
+
   let csvContent = 'Keyword Principal,Variações Canibalizadas\n';
-  
+
   groups.forEach(group => {
     const keywords = group.keywords || [];
     if (keywords.length > 0) {
       const principal = keywords[0]['Palavra-Chave'] || '';
       const variacoes = keywords.slice(1).map(k => k['Palavra-Chave']).join(',');
-      
+
       const principalEscaped = principal.includes(',') ? `"${principal}"` : principal;
       const variacoesEscaped = variacoes.includes(',') ? `"${variacoes}"` : variacoes;
-      
+
       csvContent += `${principalEscaped},${variacoesEscaped}\n`;
     }
   });
-  
+
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="keywords_agrupadas.csv"');
   res.status(200).send('\ufeff' + csvContent);
@@ -174,7 +177,7 @@ app.post('/api/exportar', (req, res) => {
 // Socket.IO para comunicação em tempo real
 io.on('connection', (socket) => {
   console.log('Cliente conectado');
-  
+
   socket.on('disconnect', () => {
     console.log('Cliente desconectado');
   });

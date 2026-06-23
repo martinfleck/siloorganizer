@@ -10,18 +10,69 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressCounter = document.getElementById('progress-counter');
     const progressPercent = document.getElementById('progress-percent');
     let currentGroups = null;
-    
+
     // Elementos de configuração de API
     const saveApisBtn = document.getElementById('save-apis-btn');
     const googleApiKey = document.getElementById('google-api-key');
     const googleCseId = document.getElementById('google-cse-id');
     const googleApiStatus = document.getElementById('google-api-status');
-    
+    const serperApiKey = document.getElementById('serper-api-key');
+    const serperApiStatus = document.getElementById('serper-api-status');
+    const serperConfigBox = document.getElementById('serper-config-box');
+    const googleConfigBox = document.getElementById('google-config-box');
+    const apiProviderRadios = document.getElementsByName('api-provider');
+
+    // Função para obter o provedor selecionado
+    function getSelectedProvider() {
+        for (const radio of apiProviderRadios) {
+            if (radio.checked) {
+                return radio.value;
+            }
+        }
+        return 'serper'; // Default
+    }
+
+    // Toggle de visualização das configurações baseado no provedor
+    function toggleConfigBoxes() {
+        const provider = getSelectedProvider();
+        if (provider === 'serper') {
+            serperConfigBox.classList.remove('hidden');
+            googleConfigBox.classList.add('hidden');
+        } else {
+            serperConfigBox.classList.add('hidden');
+            googleConfigBox.classList.remove('hidden');
+        }
+        updateRateLimitInfo();
+    }
+
+    // Adicionar listener para os radios de provedor
+    apiProviderRadios.forEach(radio => {
+        radio.addEventListener('change', toggleConfigBoxes);
+    });
+
     // Carregar APIs salvas do localStorage
     function loadSavedApis() {
+        const savedProvider = localStorage.getItem('api_provider') || 'serper';
+        const savedSerperKey = localStorage.getItem('serper_api_key');
         const savedGoogleKey = localStorage.getItem('google_api_key');
         const savedGoogleCse = localStorage.getItem('google_cse_id');
-        
+
+        // Setar radio correto
+        for (const radio of apiProviderRadios) {
+            if (radio.value === savedProvider) {
+                radio.checked = true;
+            }
+        }
+
+        // Preencher Serper
+        if (savedSerperKey) {
+            serperApiKey.value = savedSerperKey;
+            serperApiStatus.innerHTML = '<span class="text-green-600 font-medium">✓ Configurado e pronto para usar!</span>';
+        } else {
+            serperApiStatus.innerHTML = '<span class="text-gray-500">Status: Não configurado</span>';
+        }
+
+        // Preencher Google
         if (savedGoogleKey) {
             googleApiKey.value = savedGoogleKey;
             if (savedGoogleCse) {
@@ -30,45 +81,68 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 googleApiStatus.innerHTML = '<span class="text-yellow-600">⚠ Falta configurar o CSE ID</span>';
             }
+        } else {
+            googleApiStatus.innerHTML = '<span class="text-gray-500">Status: Não configurado</span>';
         }
+
+        toggleConfigBoxes();
     }
-    
+
     // Salvar APIs no localStorage
     saveApisBtn.addEventListener('click', () => {
+        const provider = getSelectedProvider();
+        localStorage.setItem('api_provider', provider);
+
+        const serperKey = serperApiKey.value.trim();
         const googleKey = googleApiKey.value.trim();
         const googleCse = googleCseId.value.trim();
-        
+
         let message = '';
         let messageType = 'success';
-        
+
+        // Tratar salvamento da Serper
+        if (serperKey) {
+            localStorage.setItem('serper_api_key', serperKey);
+            serperApiStatus.innerHTML = '<span class="text-green-600 font-medium">✓ Configurado com sucesso! Pronto para usar.</span>';
+        } else {
+            localStorage.removeItem('serper_api_key');
+            serperApiStatus.innerHTML = '<span class="text-gray-500">Status: Não configurado</span>';
+        }
+
+        // Tratar salvamento do Google CSE
         if (googleKey && googleCse) {
             localStorage.setItem('google_api_key', googleKey);
             localStorage.setItem('google_cse_id', googleCse);
             googleApiStatus.innerHTML = '<span class="text-green-600 font-medium">✓ Configurado com sucesso! Pronto para usar.</span>';
-            message = '✓ Configurações salvas!';
         } else if (googleKey && !googleCse) {
             localStorage.setItem('google_api_key', googleKey);
+            localStorage.removeItem('google_cse_id');
             googleApiStatus.innerHTML = '<span class="text-yellow-600">⚠ Falta configurar o CSE ID</span>';
-            message = '⚠ Falta o CSE ID';
-            messageType = 'warning';
         } else if (!googleKey && googleCse) {
+            localStorage.removeItem('google_api_key');
             localStorage.setItem('google_cse_id', googleCse);
             googleApiStatus.innerHTML = '<span class="text-yellow-600">⚠ Falta configurar a API Key</span>';
-            message = '⚠ Falta a API Key';
-            messageType = 'warning';
         } else {
-            // Limpar configuração se ambos os campos estiverem vazios
             localStorage.removeItem('google_api_key');
             localStorage.removeItem('google_cse_id');
             googleApiStatus.innerHTML = '<span class="text-gray-500">Status: Não configurado</span>';
-            message = '⚠ Nenhuma configuração fornecida';
-            messageType = 'warning';
         }
-        
-        // Mostrar mensagem de feedback
+
+        // Feedback do botão de salvar
+        if (provider === 'serper' && !serperKey) {
+            message = '⚠ Falta a chave da Serper.dev';
+            messageType = 'warning';
+        } else if (provider === 'google' && (!googleKey || !googleCse)) {
+            message = '⚠ Google CSE incompleto';
+            messageType = 'warning';
+        } else {
+            message = '✓ Configurações salvas!';
+            messageType = 'success';
+        }
+
         const originalText = saveApisBtn.textContent;
         saveApisBtn.textContent = message;
-        
+
         if (messageType === 'success') {
             saveApisBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
             saveApisBtn.classList.add('bg-green-600');
@@ -76,26 +150,26 @@ document.addEventListener('DOMContentLoaded', () => {
             saveApisBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
             saveApisBtn.classList.add('bg-yellow-500');
         }
-        
+
         setTimeout(() => {
             saveApisBtn.textContent = originalText;
             saveApisBtn.classList.add('bg-green-500', 'hover:bg-green-600');
             saveApisBtn.classList.remove('bg-green-600', 'bg-yellow-500');
         }, 2000);
     });
-    
+
     // Código do tutorial removido - agora temos uma página separada
-    
+
     // Carregar APIs ao iniciar
     loadSavedApis();
-    
+
     // Conectar ao Socket.IO
     const socket = io();
-    
+
     socket.on('connect', () => {
         console.log('Conectado ao servidor');
     });
-    
+
     socket.on('progress', (data) => {
         if (progressMessage) {
             progressMessage.textContent = data.message;
@@ -115,12 +189,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateRateLimitInfo = () => {
         const rateLimitInfo = document.getElementById('rate-limit-info');
         if (rateLimitInfo) {
-            rateLimitInfo.textContent = 'Taxa: Google Custom Search API - 1 requisição/segundo (1s de intervalo)';
+            const provider = getSelectedProvider();
+            if (provider === 'serper') {
+                rateLimitInfo.textContent = 'Taxa: Serper.dev API - Rápido, sem delay obrigatório entre consultas';
+            } else {
+                rateLimitInfo.textContent = 'Taxa: Google Custom Search API - 1 requisição/segundo (1s de intervalo)';
+            }
         }
     };
-    
+
     updateRateLimitInfo();
-    
+
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
@@ -130,26 +209,36 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Por favor, selecione um arquivo');
             return;
         }
-        
-        // Verificar se a API do Google está configurada
-        const googleKey = localStorage.getItem('google_api_key');
-        const googleCse = localStorage.getItem('google_cse_id');
-        if (!googleKey || !googleCse) {
-            alert('Por favor, configure a API do Google primeiro.\n\nClique no botão "Tutorial: Como obter API do Google" para aprender como fazer isso.');
-            if (!googleKey) {
-                googleApiKey.focus();
-            } else {
-                googleCseId.focus();
-            }
-            return;
-        }
 
+        const provider = getSelectedProvider();
         const formData = new FormData();
         formData.append('keywordFile', file);
-        formData.append('apiProvider', 'google'); // Sempre usar Google agora
+        formData.append('apiProvider', provider);
         formData.append('socketId', socket.id);
-        formData.append('googleApiKey', googleKey);
-        formData.append('googleCseId', googleCse);
+
+        if (provider === 'serper') {
+            const serperKey = localStorage.getItem('serper_api_key');
+            if (!serperKey) {
+                alert('Por favor, configure a API Key da Serper.dev primeiro.');
+                serperApiKey.focus();
+                return;
+            }
+            formData.append('serperApiKey', serperKey);
+        } else {
+            const googleKey = localStorage.getItem('google_api_key');
+            const googleCse = localStorage.getItem('google_cse_id');
+            if (!googleKey || !googleCse) {
+                alert('Por favor, configure a API Key e o CSE ID do Google primeiro.\n\nClique no botão "Tutorial" para aprender como fazer isso.');
+                if (!googleKey) {
+                    googleApiKey.focus();
+                } else {
+                    googleCseId.focus();
+                }
+                return;
+            }
+            formData.append('googleApiKey', googleKey);
+            formData.append('googleCseId', googleCse);
+        }
 
         loadingSpinner.classList.remove('hidden');
         submitButton.disabled = true;
@@ -195,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderResults(data) {
         resultsArea.innerHTML = '';
-        
+
         if (!data.keywords || data.keywords.length === 0) {
             resultsArea.innerHTML = '<p class="text-gray-500 text-center">Nenhuma palavra-chave encontrada.</p>';
             return;
@@ -213,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsContainer.appendChild(header);
 
         const groups = groupKeywords(data.keywords);
-        
+
         groups.forEach((group, index) => {
             const groupCard = createGroupCard(group, index + 1);
             resultsContainer.appendChild(groupCard);
@@ -224,19 +313,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function groupKeywords(keywords) {
         const groups = {};
-        
+
         keywords.forEach(keyword => {
             const keywordText = keyword['Palavra-Chave'] || keyword.keyword || Object.values(keyword)[0];
             const volume = parseInt(keyword['Volume'] || keyword.volume || 0);
             const serps = keyword['SERPs'] || keyword.serps || [];
             const similarity = keyword['Similaridade'] || keyword.similarity || 100;
-            
+
             const baseKeyword = extractBaseKeyword(keywordText);
-            
+
             if (!groups[baseKeyword]) {
                 groups[baseKeyword] = [];
             }
-            
+
             groups[baseKeyword].push({
                 text: keywordText,
                 volume: volume,
@@ -253,10 +342,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function extractBaseKeyword(keyword) {
         const words = keyword.toLowerCase().split(' ');
         if (words.length <= 2) return keyword.toLowerCase();
-        
+
         return words.slice(0, 2).join(' ');
     }
-    
+
     function normalizeUrlForComparison(url) {
         try {
             // Remover protocolo e www para comparação, mas manter o path completo
@@ -266,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace(/\/$/, '')            // Remove trailing slash
                 .replace(/\#.*$/, '')          // Remove fragmentos (#)
                 .replace(/\?.*$/, '');         // Remove query parameters (?)
-            
+
             return normalized;
         } catch {
             return url.toLowerCase().replace(/\/$/, '');
@@ -288,11 +377,11 @@ document.addEventListener('DOMContentLoaded', () => {
         group.forEach((keyword, index) => {
             const keywordContainer = document.createElement('div');
             keywordContainer.className = 'border rounded-lg overflow-hidden';
-            
+
             // Header da keyword
             const keywordHeader = document.createElement('div');
             keywordHeader.className = 'p-2 cursor-pointer hover:bg-gray-50 transition-colors';
-            
+
             if (index === 0) {
                 keywordHeader.className += ' bg-blue-50 border-blue-200';
                 keywordHeader.innerHTML = `
@@ -326,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     similarityColor = 'text-red-600';
                     bgColor = 'bg-red-50';
                 }
-                
+
                 keywordHeader.innerHTML = `
                     <div class="flex justify-between items-center">
                         <div class="flex items-center flex-1">
@@ -346,32 +435,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-            
+
             // SERPs container (inicialmente oculto)
             const serpsContainer = document.createElement('div');
             serpsContainer.className = 'hidden bg-gray-50 p-3 border-t';
-            
+
             // Calcular URLs em comum se não for a principal
             let commonUrls = [];
             if (index > 0 && group[0].serps && keyword.serps) {
                 const principalUrls = new Set(group[0].serps.map(url => normalizeUrlForComparison(url)));
                 commonUrls = keyword.serps.filter(url => principalUrls.has(normalizeUrlForComparison(url)));
             }
-            
+
             serpsContainer.innerHTML = `
                 ${index > 0 && commonUrls.length > 0 ? `
                     <div class="mb-3 p-2 bg-blue-50 rounded text-xs">
                         <span class="font-semibold text-blue-700">URLs em comum com a principal:</span>
-                        <span class="text-blue-600 ml-1">${commonUrls.length} de 7 (${Math.round((commonUrls.length/7)*100)}%)</span>
+                        <span class="text-blue-600 ml-1">${commonUrls.length} de 7 (${Math.round((commonUrls.length / 7) * 100)}%)</span>
                     </div>
                 ` : ''}
                 <div class="text-xs font-semibold text-gray-600 mb-2">Top 7 resultados de busca:</div>
                 <ol class="text-xs space-y-1">
                     ${(keyword.serps || []).map((url, idx) => {
-                        const isCommon = index > 0 && commonUrls.some(commonUrl => 
-                            normalizeUrlForComparison(commonUrl) === normalizeUrlForComparison(url)
-                        );
-                        return `
+                const isCommon = index > 0 && commonUrls.some(commonUrl =>
+                    normalizeUrlForComparison(commonUrl) === normalizeUrlForComparison(url)
+                );
+                return `
                             <li class="flex items-start ${isCommon ? 'bg-green-50 p-1 rounded' : ''}">
                                 <span class="text-gray-500 mr-2">${idx + 1}.</span>
                                 <a href="${url}" target="_blank" class="text-blue-600 hover:text-blue-800 truncate flex-1" title="${url}">
@@ -379,21 +468,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </a>
                             </li>
                         `;
-                    }).join('')}
+            }).join('')}
                 </ol>
                 ${keyword.serps && keyword.serps.length === 0 ? '<p class="text-gray-500 text-xs italic">Nenhum resultado encontrado</p>' : ''}
             `;
-            
+
             // Adicionar evento de toggle
             const toggleBtn = keywordHeader.querySelector('.serp-toggle');
             const chevron = toggleBtn.querySelector('svg');
-            
+
             toggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 serpsContainer.classList.toggle('hidden');
                 chevron.classList.toggle('rotate-180');
             });
-            
+
             keywordContainer.appendChild(keywordHeader);
             keywordContainer.appendChild(serpsContainer);
             keywordsList.appendChild(keywordContainer);

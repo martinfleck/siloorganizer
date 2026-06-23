@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SiloOrganizer - Análise de Canibalização</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body class="bg-gray-50 min-h-screen">
     <header class="bg-gray-800 text-white p-4">
         <h1 class="text-2xl font-bold text-center">Analisador de Canibalização de Keywords</h1>
@@ -16,15 +18,56 @@
         <div id="api-config-section" class="bg-white shadow-md rounded-lg p-6 mb-8">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold text-gray-800">Configuração de APIs</h2>
-                <a href="/tutorial.html" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded transition flex items-center gap-2">
+                <a href="tutorial.html"
+                    class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     Tutorial: Como obter API do Google
                 </a>
             </div>
-            
-            <div class="bg-gray-50 border rounded-lg p-4">
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Provedor de Busca</label>
+                <div class="flex flex-col sm:flex-row gap-4 p-3 bg-gray-50 rounded-lg border">
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="radio" name="api-provider" value="serper" checked class="form-radio text-blue-600 h-4 w-4">
+                        <span class="ml-2 text-sm text-gray-700 font-semibold">Serper.dev (Recomendado - 2.5K buscas grátis)</span>
+                    </label>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="radio" name="api-provider" value="google" class="form-radio text-blue-600 h-4 w-4">
+                        <span class="ml-2 text-sm text-gray-700">Google Custom Search (Legado)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Configuração Serper.dev -->
+            <div id="serper-config-box" class="bg-gray-50 border rounded-lg p-4 mb-3">
+                <h3 class="font-medium text-gray-700 mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    Serper.dev API (Resultados do Google)
+                </h3>
+                <div class="grid grid-cols-1 gap-3">
+                    <div>
+                        <label class="text-sm text-gray-600 mb-1 block">API Key (Serper)</label>
+                        <input type="text" id="serper-api-key" placeholder="Cole sua API Key do serper.dev aqui"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div id="serper-api-status" class="text-sm mt-3 p-2 rounded bg-white">
+                    <span class="text-gray-500">Status: Não configurado</span>
+                </div>
+                <div class="mt-3 text-xs text-gray-600">
+                    <p>🇧🇷 As buscas serão feitas no Google Brasil (pt-BR)</p>
+                    <p>🆓 2.500 pesquisas gratuitas ao se cadastrar em <a href="https://serper.dev" target="_blank" class="text-blue-600 underline font-medium">serper.dev</a></p>
+                </div>
+            </div>
+
+            <!-- Configuração Google Custom Search -->
+            <div id="google-config-box" class="bg-gray-50 border rounded-lg p-4 hidden mb-3">
                 <h3 class="font-medium text-gray-700 mb-3 flex items-center">
                     <img src="https://www.google.com/favicon.ico" class="w-4 h-4 mr-2">
                     Google Custom Search API
@@ -32,21 +75,13 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                         <label class="text-sm text-gray-600 mb-1 block">API Key</label>
-                        <input 
-                            type="text" 
-                            id="google-api-key" 
-                            placeholder="Cole sua API Key do Google aqui"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
+                        <input type="text" id="google-api-key" placeholder="Cole sua API Key do Google aqui"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="text-sm text-gray-600 mb-1 block">CSE ID (ID do Mecanismo de Pesquisa)</label>
-                        <input 
-                            type="text" 
-                            id="google-cse-id" 
-                            placeholder="Cole seu CSE ID aqui"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
+                        <input type="text" id="google-cse-id" placeholder="Cole seu CSE ID aqui"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
                 <div id="google-api-status" class="text-sm mt-3 p-2 rounded bg-white">
@@ -57,9 +92,10 @@
                     <p>🆓 100 pesquisas gratuitas por dia</p>
                 </div>
             </div>
-            
+
             <div class="mt-4 flex justify-end">
-                <button id="save-apis-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition">
+                <button id="save-apis-btn"
+                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition">
                     Salvar Configurações
                 </button>
             </div>
@@ -70,22 +106,15 @@
                 <label for="keyword-file" class="block text-gray-700 text-sm font-bold mb-2">
                     Selecione o arquivo de palavras-chave
                 </label>
-                <input 
-                    type="file" 
-                    id="keyword-file" 
-                    name="keywordFile" 
-                    accept=".csv,.txt"
+                <input type="file" id="keyword-file" name="keywordFile" accept=".csv,.txt"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                >
+                    required>
             </div>
 
             <!-- Removido seletor de API - agora usa apenas Google -->
 
-            <button 
-                type="submit"
-                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full transition duration-200"
-            >
+            <button type="submit"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full transition duration-200">
                 Analisar
             </button>
         </form>
@@ -105,7 +134,8 @@
                 </div>
                 <div class="mt-3">
                     <div class="bg-gray-200 rounded-full h-2 overflow-hidden">
-                        <div id="progress-bar" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
+                        <div id="progress-bar" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%">
+                        </div>
                     </div>
                 </div>
                 <div class="mt-2 text-center">
@@ -119,11 +149,9 @@
         </div>
 
         <div class="mt-6 text-center">
-            <button 
-                id="export-btn"
+            <button id="export-btn"
                 class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-6 rounded transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled
-            >
+                disabled>
                 Exportar para CSV
             </button>
         </div>
@@ -132,6 +160,7 @@
     <!-- Modal removido - agora temos uma página separada para o tutorial -->
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/script.js"></script>
+    <script src="script.js"></script>
 </body>
+
 </html>

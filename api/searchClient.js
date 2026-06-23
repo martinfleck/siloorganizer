@@ -5,17 +5,85 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchSerpResults(keyword, apiProvider = 'google', index = 0, total = 0, frontendCredentials = {}) {
+async function fetchSerpResults(keyword, apiProvider = 'serper', index = 0, total = 0, frontendCredentials = {}) {
     try {
-        // Adiciona delay para respeitar rate limit do Google (100 requisições por 100 segundos)
-        if (index > 0) {
-            console.log(`⏳ Aguardando 1 segundo antes da próxima requisição (${index}/${total})...`);
-            await delay(1000);
+        if (apiProvider === 'serper') {
+            return await fetchSerperResults(keyword, index, total, frontendCredentials);
+        } else {
+            // Adiciona delay para respeitar rate limit do Google (100 requisições por 100 segundos)
+            if (index > 0) {
+                console.log(`⏳ Aguardando 1 segundo antes da próxima requisição (${index}/${total})...`);
+                await delay(1000);
+            }
+            return await fetchGoogleResults(keyword, index, total, frontendCredentials);
         }
-        return await fetchGoogleResults(keyword, index, total, frontendCredentials);
     } catch (error) {
         console.error(`Erro ao buscar resultados para "${keyword}":`, error.message);
         return [];
+    }
+}
+
+async function fetchSerperResults(keyword, index = 0, total = 0, frontendCredentials = {}) {
+    // Usar credencial do frontend se fornecida, senão usar do .env
+    const apiKey = frontendCredentials.serperApiKey || process.env.SERPER_API_KEY;
+    
+    if (!apiKey) {
+        console.warn('SERPER_API_KEY não configurada, usando resultados simulados');
+        return simulateGoogleResults(keyword);
+    }
+    
+    if (index > 0 && total > 0) {
+        console.log(`[${index}/${total}] Buscando no Serper.dev: "${keyword}"`);
+    } else {
+        console.log(`Buscando no Serper.dev: "${keyword}"`);
+    }
+    
+    try {
+        const response = await axios.post('https://google.serper.dev/search', {
+            q: keyword,
+            gl: 'br',         // País: Brasil
+            hl: 'pt-br',      // Idioma: Português Brasil
+            num: 7            // Número de resultados (mesmo que Google CSE)
+        }, {
+            headers: {
+                'X-API-KEY': apiKey,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000 // 10 segundos de timeout
+        });
+        
+        const items = response.data.organic || [];
+        const urls = items.map(item => item.link).filter(url => url);
+        
+        console.log(`✓ Encontrados ${urls.length} resultados no Serper.dev para "${keyword}"`);
+        
+        return urls.slice(0, 7);
+    } catch (error) {
+        console.error(`⚠️ Erro ao buscar no Serper.dev "${keyword}": ${error.message}. Tentando novamente em 1 segundo...`);
+        await delay(1000);
+        
+        try {
+            const retryResponse = await axios.post('https://google.serper.dev/search', {
+                q: keyword,
+                gl: 'br',
+                hl: 'pt-br',
+                num: 7
+            }, {
+                headers: {
+                    'X-API-KEY': apiKey,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            
+            const retryItems = retryResponse.data.organic || [];
+            const retryUrls = retryItems.map(item => item.link).filter(url => url);
+            console.log(`✓ Retry bem-sucedido no Serper.dev! Encontrados ${retryUrls.length} resultados para "${keyword}"`);
+            return retryUrls.slice(0, 7);
+        } catch (retryError) {
+            console.error(`❌ Todas as tentativas na Serper.dev falharam para "${keyword}". Usando resultados simulados.`);
+            return simulateGoogleResults(keyword);
+        }
     }
 }
 
