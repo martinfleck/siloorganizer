@@ -515,26 +515,29 @@ document.addEventListener('DOMContentLoaded', () => {
         exportButton.disabled = true;
     }
 
-    exportButton.addEventListener('click', async () => {
+    exportButton.addEventListener('click', () => {
         if (!currentGroups) {
             alert('Nenhum dado para exportar. Por favor, faça uma análise primeiro.');
             return;
         }
 
         try {
-            const response = await fetch('/api/exportar', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ groups: currentGroups })
+            let csvContent = 'Keyword Principal,Variações Canibalizadas\n';
+
+            currentGroups.forEach(group => {
+                const keywords = group.keywords || [];
+                if (keywords.length > 0) {
+                    const principal = keywords[0]['Palavra-Chave'] || '';
+                    const variacoes = keywords.slice(1).map(k => k['Palavra-Chave']).join(',');
+
+                    const principalEscaped = principal.includes(',') ? `"${principal}"` : principal;
+                    const variacoesEscaped = variacoes.includes(',') ? `"${variacoes}"` : variacoes;
+
+                    csvContent += `${principalEscaped},${variacoesEscaped}\n`;
+                }
             });
 
-            if (!response.ok) {
-                throw new Error('Erro ao exportar os dados');
-            }
-
-            const blob = await response.blob();
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;

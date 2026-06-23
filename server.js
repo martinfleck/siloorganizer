@@ -18,8 +18,8 @@ const PORT = process.env.PORT || 3000;
 
 const upload = multer({ dest: 'uploads/' });
 
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.post('/api/agrupar', upload.single('keywordFile'), async (req, res) => {
   if (!req.file) {
