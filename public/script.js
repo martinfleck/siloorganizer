@@ -24,9 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Função para obter o provedor selecionado
     function getSelectedProvider() {
-        for (const radio of apiProviderRadios) {
-            if (radio.checked) {
-                return radio.value;
+        for (let i = 0; i < apiProviderRadios.length; i++) {
+            if (apiProviderRadios[i].checked) {
+                return apiProviderRadios[i].value;
             }
         }
         return 'serper'; // Default
@@ -46,9 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Adicionar listener para os radios de provedor
-    apiProviderRadios.forEach(radio => {
-        radio.addEventListener('change', toggleConfigBoxes);
-    });
+    for (let i = 0; i < apiProviderRadios.length; i++) {
+        apiProviderRadios[i].addEventListener('change', toggleConfigBoxes);
+    }
 
     // Carregar APIs salvas do localStorage
     function loadSavedApis() {
@@ -58,9 +58,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedGoogleCse = localStorage.getItem('google_cse_id');
 
         // Setar radio correto
-        for (const radio of apiProviderRadios) {
-            if (radio.value === savedProvider) {
-                radio.checked = true;
+        for (let i = 0; i < apiProviderRadios.length; i++) {
+            if (apiProviderRadios[i].value === savedProvider) {
+                apiProviderRadios[i].checked = true;
             }
         }
 
